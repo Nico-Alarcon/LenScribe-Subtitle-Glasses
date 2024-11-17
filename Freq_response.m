@@ -8,11 +8,11 @@ phase_deg = [62 37 22 18 16 8 5 3 1 0.5 0 -1 -2 -4.8 -5.1 -5.2];
 poly_order = 5;
 
 % Call the function
-[amplitudeFunc, phaseFunc] = fitFrequencyResponse(f, magnitude_dB, phase_deg, poly_order);
+[magnitudeCoeffs, phaseCoeffs] = fitFrequencyResponse(f, magnitude_dB, phase_deg, poly_order);
 
-% Display the fitted functions
-disp('Amplitude Response Function:');
-disp(amplitudeFunc);
+% Display the coefficients
+disp('Magnitude Response Coefficients:');
+disp(magnitudeCoeffs);
 
-disp('Phase Response Function:');
-disp(phaseFunc);
+disp('Phase Response Coefficients:');
+disp(phaseCoeffs);
