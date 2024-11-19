@@ -4,15 +4,15 @@ verbose = true;
 speak = false;
 % Step 1: Audio Source 
 
-target_pos = [0, 2];
+target_pos = [0, 1];
 [target_audio, Fs] = audioread('recorded_audio.wav');
 
 if speak
     sound(target_audio, Fs);
 end
 
-% Step 2: Delay due to distance from audio source
-
+% Step 2: Delay and attenuation due to distance from audio source
+% attenuation by 1/(4pi*r)
 %positions x,y in meters, rough estimates from my glasses
 % center mic, left mic, right mic
 mic1 = [0 0];
@@ -27,6 +27,8 @@ mic_d = vecnorm((mic_pos - target_pos)');
 SOUND = 343; %meters/second
 mic_delay = mic_d/SOUND; 
 
+%sample delay: seconds * Fs
+mic_data = mic_delay * Fs;
 if verbose
     fprintf("The microphones have delays of %s microseconds relative to mic1\n",join(string(abs(diff(mic_delay(1:2)))*1e6), ', ')); 
 end
@@ -40,10 +42,9 @@ f = [20 40 60 80 100 200 400 600 800 1000 2000 4000 6000 8000 10000 20000];
 magnitude_dB = [-3 -1.25 -0.8 -0.40 -0.39 -0.05 0 0 0 0 0 0.01 0.18 0.2 1 4];
 % Phase response (degrees)
 phase_deg = [62 37 22 18 16 8 5 3 1 0.5 0 -1 -2 -4.8 -5.1 -5.2];
-% Polynomial order
-poly_order = 5;
+
 % Call the function
-[magnitudeCoeffs, phaseCoeffs] = fitFrequencyResponse(f, magnitude_dB, phase_deg, poly_order);
+[magnitudeCoeffs, phaseCoeffs] = fitFrequencyResponse(f, magnitude_dB, phase_deg, 5);
 evalFunction(magnitudeCoeffs, 20)
 
 
