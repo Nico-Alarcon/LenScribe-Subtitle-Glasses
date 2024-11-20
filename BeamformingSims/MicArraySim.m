@@ -62,11 +62,31 @@ end
 %                       SIGNAL REACHES MICROPHONES                       %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% MICROPHONE CONTINUOUS TIME H(s)
+beam_input = mic_data;
+% MICROPHONE CONTINUOUS TIME H(s) TODO
+
+f = [20 40 60 80 100 200 400 600 800 1000 2000 4000 6000 8000 10000 20000];
+% Amplitude response in dB (relative to a reference, e.g., 1kHz)
+magnitude_dB = [-3 -1.25 -0.8 -0.40 -0.39 -0.05 0 0 0 0 0 0.01 0.18 0.2 1 4];
+% Phase response (degrees)
+phase_deg = [62 37 22 18 16 8 5 3 1 0.5 0 -1 -2 -4.8 -5.1 -5.2];
+
+% Call the function
+[magnitudeCoeffs, phaseCoeffs] = fitFrequencyResponse(f, magnitude_dB, phase_deg, 5);
 
 
-% ANTIALIASING FILTER
 
+% ANTIALIASING FILTER, can be changed once solidified
+N=6;
+fp = 8000; %cutoff frequency
+[z_butter, p_butter, k_butter] = buttap(N);
+[num_butter, den_butter] = zp2tf(z_butter*fp, p_butter*fp, k_butter);
+freqs(num_butter, den_butter);
+AAF = tf(num_butter, den_butter);
+
+for i = 1:length(mic_delay)
+    beam_input(:,i) = lsim(AAF, beam_input(:,i), t); 
+end
 
 % SAMPLING
 
@@ -94,15 +114,7 @@ end
 % fft audio data, multiply amplitude add phase
 
 % Frequency points (Hz)
-f = [20 40 60 80 100 200 400 600 800 1000 2000 4000 6000 8000 10000 20000];
-% Amplitude response in dB (relative to a reference, e.g., 1kHz)
-magnitude_dB = [-3 -1.25 -0.8 -0.40 -0.39 -0.05 0 0 0 0 0 0.01 0.18 0.2 1 4];
-% Phase response (degrees)
-phase_deg = [62 37 22 18 16 8 5 3 1 0.5 0 -1 -2 -4.8 -5.1 -5.2];
 
-% Call the function
-[magnitudeCoeffs, phaseCoeffs] = fitFrequencyResponse(f, magnitude_dB, phase_deg, 5);
-evalFunction(magnitudeCoeffs, 20)
 
 
 
