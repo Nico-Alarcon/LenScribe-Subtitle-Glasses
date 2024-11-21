@@ -74,8 +74,6 @@ phase_deg = [62 37 22 18 16 8 5 3 1 0.5 0 -1 -2 -4.8 -5.1 -5.2];
 % Call the function
 [magnitudeCoeffs, phaseCoeffs] = fitFrequencyResponse(f, magnitude_dB, phase_deg, 5);
 
-
-
 % ANTIALIASING FILTER, can be changed once solidified
 N=6;
 fp = 8000; %cutoff frequency
@@ -84,7 +82,7 @@ fp = 8000; %cutoff frequency
 freqs(num_butter, den_butter);
 AAF = tf(num_butter, den_butter);
 
-beam_input = lsim(AAF, beam_input', t)'; 
+beam_input = lsim(AAF, beam_input, t); 
 
 % SAMPLING - uses its own AAF, but doesnt matter if fs > 16kHz
 fs_adc = 20000;
