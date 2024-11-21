@@ -84,11 +84,14 @@ fp = 8000; %cutoff frequency
 freqs(num_butter, den_butter);
 AAF = tf(num_butter, den_butter);
 
-for i = 1:length(mic_delay)
-    beam_input(:,i) = lsim(AAF, beam_input(:,i), t); 
-end
+beam_input = lsim(AAF, beam_input', t)'; 
 
-% SAMPLING
+% SAMPLING - uses its own AAF, but doesnt matter if fs > 16kHz
+fs_adc = 20000;
+ts = (0:n-1)/fs_adc;
+[p, q] = rat(fs_adc / Fs); % Calculate resampling factors
+
+beam_input = resample(beam_input', p, q)'; % Resample signal
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
