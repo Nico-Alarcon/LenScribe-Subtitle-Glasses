@@ -124,57 +124,74 @@ beam_input = resample(beam_input, p, q); % Resample signal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % BEAMFORMING OPERATIONS
 
-% After resampling, recalculate ts to match new length of beam_input
-N_resampled = size(beam_input, 1);
-ts = (0:N_resampled-1)/fs_adc; 
-
 % delay and sum --> simplest, least computationally intensive
-beamformed_output = sum(beam_input, 2);  
+  % After computing mic_data and mic_delay:
+y_beamformed = delaysum(mic_data, mic_delay, Fs);
+y_beamformed = y_beamformed / max(abs(y_beamformed));
+audiowrite('beamformed_signal.wav', y_beamformed, Fs);
+
+% Plot the beamformed signal in the time domain
+figure;
+subplot(2,1,1);
+plot(t, y_beamformed, 'LineWidth', 1.5);
+title('Beamformed Signal in Time Domain');
+xlabel('Time (s)');
+ylabel('Amplitude');
+grid on;
+
+% Compute the FFT of the beamformed signal for frequency-domain analysis
+Y_Beamformed = fft(y_beamformed);
+Y_Beamformed_magnitude = abs(Y_Beamformed);
+
+% Plot the beamformed signal in the frequency domain (magnitude spectrum)
+subplot(2,1,2);
+semilogx(f(1:n/2), 20*log10(Y_Beamformed_magnitude(1:n/2)), 'LineWidth', 1.5);
+title('Beamformed Signal Frequency Response');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude (dB)');
+grid on;
+ylim([-200, 100]);
+
+% Plot time-domain: Overlay beamformed signal with the original
+figure;
+subplot(2,1,1);
+plot(t, target_audio, 'DisplayName', 'Original', 'LineWidth', 1.5);
+hold on;
+plot(t, y_beamformed, 'DisplayName', 'Beamformed', 'LineWidth', 1.5);
+hold off;
+title('Time-Domain: Original vs Beamformed');
+xlabel('Time (s)');
+ylabel('Amplitude');
+legend('Location', 'best');
+grid on;
+
+% Frequency-domain comparison
+Y_original = fft(target_audio);
+Y_beamformed = fft(y_beamformed);
+
+% Convert to magnitude (dB) for better comparison
+Y_original_mag_dB = 20*log10(abs(Y_original(1:n/2)));
+Y_beamformed_mag_dB = 20*log10(abs(Y_beamformed(1:n/2)));
+
+subplot(2,1,2);
+semilogx(f(1:n/2), Y_original_mag_dB, 'DisplayName', 'Original', 'LineWidth', 1.5);
+hold on;
+semilogx(f(1:n/2), Y_beamformed_mag_dB, 'DisplayName', 'Beamformed', 'LineWidth', 1.5);
+hold off;
+title('Frequency-Domain: Original vs Beamformed');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude (dB)');
+legend('Location', 'best');
+grid on;
+ylim([-200, 100]);
+
+
 
 % Bartlett Beamforming --> delay/sum + uniform weighting per microphone
-mic_n = size(beam_input, 2);
-bartlett_weights = ones(mic_n, 1) / mic_n;
-bartlett_output = beam_input * bartlett_weights;
+
 
 % frequency domain delay/sum + deconvolution
-beam_freq = fft(beam_input);
-beam_freq_sum = sum(beam_freq, 2);
 
-f_resampled = (0:N_resampled-1)'*(fs_adc/N_resampled);
-mic_H_deconv = 10.^(evalFunction(magnitudeCoeffs, f_resampled)/20).* ...
-               exp(1j*pi*evalFunction(phaseCoeffs, f_resampled)/180);
-mic_H_deconv(abs(mic_H_deconv) < 1e-12) = 1e-12;
-beam_freq_deconv = beam_freq_sum ./ mic_H_deconv;
-beamformed_output_deconv = real(ifft(beam_freq_deconv));
-
-figure;
-
-%  Delay-and-sum
-subplot(3,1,1);
-plot(ts, beamformed_output, 'LineWidth', 1.5);
-title('Delay-and-Sum Beamformed Signal');
-xlabel('Time (s)');
-ylabel('Amplitude');
-grid on;
-
-%  Bartlett
-subplot(3,1,2);
-plot(ts, bartlett_output, 'LineWidth', 1.5);
-title('Bartlett Beamformed Signal');
-xlabel('Time (s)');
-ylabel('Amplitude');
-grid on;
-
-% Frequency-Domain Delay/Sum + Deconvolution
-subplot(3,1,3);
-plot(ts, beamformed_output_deconv, 'LineWidth', 1.5);
-title('Frequency-Domain Deconvolved Beamformed Signal');
-xlabel('Time (s)');
-ylabel('Amplitude');
-grid on;
-
-% Add an overall figure title
-sgtitle('Comparison of Beamforming Methods');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                         COMPARISONS AND ANALYSIS                       %
@@ -186,9 +203,6 @@ sgtitle('Comparison of Beamforming Methods');
 % fft audio data, multiply amplitude add phase
 
 % Frequency points (Hz)
-
-
-
 
 
 
