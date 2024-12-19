@@ -33,5 +33,5 @@ function y = delaysum(X, delays, fs)
     end
 
     % Average across microphones
-    y = mean(y_delayed, numMics);
+    y = mean(y_delayed, 2);
 end
