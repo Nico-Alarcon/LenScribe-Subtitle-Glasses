@@ -168,7 +168,7 @@ beam_input = resample(beam_input, p, q); % Resample signal
 % delay and sum --> simplest, least computationally intensive
   % After computing mic_data and mic_delay:
 y_beamformed = delaysum(mic_data, mic_delay, Fs);
-y_beamformed = y_beamformed / max(abs(y_beamformed));
+%y_beamformed = y_beamformed / max(abs(y_beamformed));
 audiowrite('beamformed_signal.wav', y_beamformed, Fs);
 
 % Plot the beamformed signal in the time domain
