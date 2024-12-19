@@ -1,29 +1,42 @@
-clear;
-verbose = true;
+clear;clf;
+verbose = false;
 speak = false;
 
 %   NUMBER AND POSITIONS OF MICROPHONES IN METERS  %
-mic1 = [0 0];
-mic2 = [-72.6e-3 -10e-3];
-mic3 = [72.6e-3 -10e-3];
-mic_pos = [mic1; mic2; mic3];
-mic_n = 3;
+
+%Endfire Linear Microphone Array
+mic_n = 4; % Number of microphones
+d = 0.01; % Spacing (1 cm), under nyquist for frequencies of interest 
+mic_pos = horzcat(zeros(mic_n,1),(0:mic_n-1)' * d); % Linear positions along x-axis
 
 %   POSITION OF AUDIO SOURCE    %
 target_pos = [0, 2];
-
 [target_audio, Fs] = audioread('recorded_audio.wav');
 n = length(target_audio);
 t = (0:n-1)/Fs;
 f = (0:n-1)*(Fs/n); % Frequency axis (Hz)
 
+%   Noise Source  %
+[noise_audio, Fs2] = audioread('AmbientNoise.wav');
+
+%resample if different
+[p,q] = rat(Fs/Fs2);
+noise_audio = resample(noise_audio, p, q);
+noise_audio = noise_audio(1:n);
+
+%% positions of noise source, roughly parabolic with noise 2 feet behind and
+% to sides 2x^2 - 2, mics at 0,0
+noise_x = 2; % length is noise_x*2 + 1
+noise_pos = horzcat((-noise_x:noise_x)',((-noise_x:noise_x)'.^2).*2 -2);
+
+
+%% noise and audio overlaid
 if speak
-    sound(target_audio, Fs);
+    sound(target_audio + noise_audio, Fs);
 end
 
-% Step 2: Delay and attenuation due to distance from audio source
+%% Step 2: Delay and attenuation due to distance from audio source
 % attenuation by 1/(4pi*r)
-%positions x,y in meters, rough estimates from my glasses
 
 %distance of each from target audio
 mic_d = vecnorm((mic_pos - target_pos)');
@@ -31,8 +44,9 @@ mic_d = vecnorm((mic_pos - target_pos)');
 % Subplot 1: Time-domain representation
 figure;
 
-subplot(4, 1, 1);
-plot(t, target_audio);
+subplot(mic_n+1, 1, 1);
+plot(t, target_audio, 'b');
+
 title('Time-Domain Representation of Audio Signal');
 xlabel('Time (s)');
 ylabel('Amplitude');
@@ -46,15 +60,21 @@ for i = 1:mic_n
     delay = int32(mic_delay(i)*Fs);
 
     %insert delay # of samples before and attenuate by 4pi*distance
-    mic_data(:,i) = [zeros(delay,1); target_audio(1:end-delay)]/(4*pi*mic_d(i));
+    mic_data(:,i) = [zeros(delay,1); target_audio(1:end-delay)]/(4*pi*mic_d(i)) + add_noise(mic_pos(i), noise_pos, noise_audio, Fs);
 
-    subplot(4, 1, i+1);
+    %adds noise to microphone
+    %mic_data(:,i) = mic_data(:,i) + get_to_mic(mic_pos(i), noise_pos, noise_audio, Fs); 
+
+    subplot(mic_n+1, 1, i+1);
     plot(t, mic_data(:,i));
     title(sprintf('Mic_{%d}, Delay %f ms', i, round(mic_delay(i)*1e3,3)));
     xlabel('Time (s)');
     ylabel('Amplitude');
     grid on; hold on;
 end
+
+%small test
+%sound(mic_data(:,1),Fs);
 
 if verbose
     fprintf("The microphones have delays of %s microseconds relative to mic1\n",join(string(abs(diff(mic_delay(1:2)))*1e6), ', ')); 
@@ -74,16 +94,37 @@ phase_deg = [0, 0, 0, 0, 0, 0, 0,];
 [magnitudeCoeffs, phaseCoeffs] = fitFrequencyResponse(f_approx, magnitude_dB, phase_deg, 5);
 mic_H = (10.^(evalFunction(magnitudeCoeffs,f)/20).*exp(1j*pi*evalFunction(phaseCoeffs,f)/180))';
 
-% ANTIALIASING FILTER, can be changed once solidified
-N=6;
+%% ANTIALIASING FILTER, 6th order bessel filter to preserve phase
+N=4;
 fp = 2*pi*8000; %cutoff frequency
-[z_butter, p_butter, k_butter] = buttap(N);
-[num_butter, den_butter] = zp2tf(z_butter*fp, p_butter*fp, k_butter*(fp^N));
-AAF = tf(num_butter, den_butter);
+[z, p, k] = besself(N,fp);
+[num, den] = zp2tf(z, p, k);
+AAF = tf(num, den);
 [H, ~] = freqresp(AAF,2*pi*f);
 H = squeeze(H);
 
-%%%%%%%%%%% Apply Microphone and AAF tfs %%%%%%%%%%%%%%%%%%
+%%%% Plotting Group Delay and Magnitude Response of Filter
+figure;
+[h,w] = freqs(num,den);
+subplot(2,1,1);
+semilogx(w(1:end)/(2*pi),20*log(abs(h)));
+title("Magnitude Response of AntiAliasing Filter")
+xlabel("Frequency (Hz)")
+ylabel("Magnitude (dB)")
+xline(fp)
+grid on
+
+subplot(2,1,2);
+grpdel = -diff(unwrap(angle(h)))./diff(w);
+semilogx(w(2:end)/(2*pi),grpdel)
+title("Group Delay of AntiAliasing Filter")
+xlabel("Frequency (Hz)")
+ylabel("Group delay (s)")
+xline(fp)
+grid on
+
+
+%% %%%%%%%%% Apply Microphone and AAF tfs %%%%%%%%%%%%%%%%%%
 input_H = H .* mic_H;
 beam_input = fft(mic_data) .* repmat(input_H, 1,mic_n);
 
@@ -206,6 +247,7 @@ ylim([-200, 100]);
 
 
 
+
 %%%%%%%                 HELPER FUNCTIONS                   %%%%%%%%%%%
 function out = evalFunction(coeff, f)
     %from an array of coefficients evaluate function with log input
@@ -215,10 +257,16 @@ function out = evalFunction(coeff, f)
     end
 end
 
-function out = evalFunct(coeff, f)
-    %from an array of coefficients evaluate function with log input
-    out = 0;
-    for i = 1:length(coeff)
-        out = out + coeff(i)*log10(f)^(length(coeff)-i);
+% function takes source signal, sampling Fs, source locations, and mic position
+% outputs resulting audio
+function audio = add_noise(input_pos, sources, signal, Fs)
+    d = vecnorm((sources - input_pos)'); %distance from mic to noise sources
+    delays = int32((d/343)*Fs); 
+
+    audio = zeros(length(signal),1);
+    for i = 1:length(sources)
+        audio = audio + [zeros(delays(i),1); signal(1:end-delays(i))]/(4*pi*d(i));
     end
+    audio = audio/length(sources) .*2; 
 end
+
