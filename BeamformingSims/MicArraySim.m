@@ -122,15 +122,59 @@ beam_input = resample(beam_input, p, q); % Resample signal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                         SIGNAL CONVERTED TO DIGITAL                    %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 % BEAMFORMING OPERATIONS
 
+% After resampling, recalculate ts to match new length of beam_input
+N_resampled = size(beam_input, 1);
+ts = (0:N_resampled-1)/fs_adc; % Redefine ts to match the new number of samples
+
 % delay and sum --> simplest, least computationally intensive
+beamformed_output = sum(beam_input, 2);  % Delay-and-sum beamforming
 
-% Bartlett Beamforming --> delay/sum + weighting per microphone
+% Bartlett Beamforming --> delay/sum + uniform weighting per microphone
+mic_n = size(beam_input, 2);
+bartlett_weights = ones(mic_n, 1) / mic_n;
+bartlett_output = beam_input * bartlett_weights;
 
-% frequency domain delay/sum + deconvolution --> more computation, cleaner
+% frequency domain delay/sum + deconvolution
+beam_freq = fft(beam_input);
+beam_freq_sum = sum(beam_freq, 2);
 
+f_resampled = (0:N_resampled-1)'*(fs_adc/N_resampled);
+mic_H_deconv = 10.^(evalFunction(magnitudeCoeffs, f_resampled)/20).* ...
+               exp(1j*pi*evalFunction(phaseCoeffs, f_resampled)/180);
+mic_H_deconv(abs(mic_H_deconv) < 1e-12) = 1e-12;
+beam_freq_deconv = beam_freq_sum ./ mic_H_deconv;
+beamformed_output_deconv = real(ifft(beam_freq_deconv));
+
+figure;
+
+%  Delay-and-sum
+subplot(3,1,1);
+plot(ts, beamformed_output, 'LineWidth', 1.5);
+title('Delay-and-Sum Beamformed Signal');
+xlabel('Time (s)');
+ylabel('Amplitude');
+grid on;
+
+%  Bartlett
+subplot(3,1,2);
+plot(ts, bartlett_output, 'LineWidth', 1.5);
+title('Bartlett Beamformed Signal');
+xlabel('Time (s)');
+ylabel('Amplitude');
+grid on;
+
+% Frequency-Domain Delay/Sum + Deconvolution
+subplot(3,1,3);
+plot(ts, beamformed_output_deconv, 'LineWidth', 1.5);
+title('Frequency-Domain Deconvolved Beamformed Signal');
+xlabel('Time (s)');
+ylabel('Amplitude');
+grid on;
+
+% Add an overall figure title
+sgtitle('Comparison of Beamforming Methods');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                         COMPARISONS AND ANALYSIS                       %
