@@ -126,10 +126,10 @@ beam_input = resample(beam_input, p, q); % Resample signal
 
 % After resampling, recalculate ts to match new length of beam_input
 N_resampled = size(beam_input, 1);
-ts = (0:N_resampled-1)/fs_adc; % Redefine ts to match the new number of samples
+ts = (0:N_resampled-1)/fs_adc; 
 
 % delay and sum --> simplest, least computationally intensive
-beamformed_output = sum(beam_input, 2);  % Delay-and-sum beamforming
+beamformed_output = sum(beam_input, 2);  
 
 % Bartlett Beamforming --> delay/sum + uniform weighting per microphone
 mic_n = size(beam_input, 2);
