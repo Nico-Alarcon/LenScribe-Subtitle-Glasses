@@ -26,7 +26,7 @@ function y = delaysum(X, delays, fs)
             idx_ceil = idx_floor + 1;
             idx_ceil(idx_ceil > (numSamples-1)) = numSamples - 1;
 
-            x_floor = X(idx_floor+1, m; % Interpolate 
+            x_floor = X(idx_floor+1, m); % Interpolate 
             x_ceil = X(idx_ceil+1, m);
             y_delayed(:, m) = (1 - frac).*x_floor + frac.*x_ceil;
         end
