@@ -195,12 +195,13 @@ delaysum_freq_time = real(ifft(delaysum_freq_fft));
 theta = (-90:90)*pi/180;
 power_output = zeros(length(theta),1);
 for i = 1:length(theta)
-    [power_output(i), ~] = bartlett(beam_input, d, mic_n, theta(i));
+    [power_output(i), ~] = bartlett(beam_input, d, mic_n, theta(i), fs_adc);
 end
 power_output = 10*log10(abs(power_output));
 power_output = power_output - max(power_output);
 
-[~,y_bartlett] = bartlett(beam_input, d, mic_n, 0);
+[~,y_bartlett] = bartlett(beam_input, d, mic_n, 0*pi/180, fs_adc);
+y_bartlett = real(y_bartlett);
 % :(
 if graph
     figure;
