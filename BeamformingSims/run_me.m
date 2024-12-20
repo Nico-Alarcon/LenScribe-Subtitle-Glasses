@@ -120,7 +120,7 @@ if graph
     figure;
     subplot(2,1,1);
     semilogx(f,20*log(abs(H)));
-    title("Magnitude Response of AntiAliasing Filter")
+    title("Magnitude Response of Bessel AntiAliasing Filter")
     xlabel("Frequency (Hz)")
     ylabel("Magnitude (dB)")
     xline(fp)
@@ -129,7 +129,7 @@ if graph
     subplot(2,1,2);
     grpdel = -diff(unwrap(angle(H)))./diff(2*pi*f);
     semilogx(f(2:end),grpdel)
-    title("Group Delay of AntiAliasing Filter")
+    title("Group Delay of Bessel AntiAliasing Filter")
     xlabel("Frequency (Hz)")
     ylabel("Group delay (s)")
     xline(fp)
