@@ -28,6 +28,7 @@ phi = 90*pi/180;
 %same relative delay between them = distance between mics and speed constant
 req_delay = (mic_pos * [cos(phi),sin(phi)]'/SOUND)';
 
+abs_delay = vecnorm((mic_pos - target_pos)')/343;
 %   Noise Source  Uris Library%
 [noise_audio, Fs2] = audioread('AmbientNoise.wav');
 
@@ -78,7 +79,7 @@ for i = 1:mic_n
     if graph
         subplot(mic_n+1, 1, i+1);
         plot(t, mic_data(:,i));
-        title(sprintf('Mic_{%d}, Delay %f ms', i, round(req_delay(i)*1e3,3)));
+        title(sprintf('Mic_{%d}, Delay %f ms', i, round(abs_delay(i)*1e3,3)));
         xlim([0,max(t)])
         xlabel('Time (s)');
         ylabel('Amplitude');
@@ -331,17 +332,23 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % COMPARISON BETWEEN EACH
 %need to resample target audio for comparison
-
-fprintf('\nVariance at Input: %s\n\n', var(noise_audio + target_audio));
+target_var_temp = fft(noise_audio + target_audio);
+target_var_temp = abs(target_var_temp/max(target_var_temp)).^2;
 
 [p,q] = rat(fs_adc/Fs);
 target_audio = resample(target_audio, p, q);
 
-%% 
-fprintf('Variance at Time Delay Sum Output: %s\n', var(delaysum_time_time));
-fprintf('Variance at Freq Delay Sum Output: %s\n', var(delaysum_freq_time));
-fprintf('Variance at Bartlett Output: %s\n', var(y_bartlett));
+time_var_temp = abs(Y_delaysum_time_fft/max(Y_delaysum_time_fft)).^2;
+freq_var_temp = abs(delaysum_freq_fft/max(delaysum_freq_fft)).^2;
+bart_var_temp = abs((Y_bartlett/max(Y_bartlett))).^2;
 
+%% 
+if verbose
+    fprintf('\nVariance at Input: %s\n', var(target_var_temp(1:n/2)));
+    fprintf('Variance at Time Delay Sum Output: %s\n', var(time_var_temp(1:ns/2)));
+    fprintf('Variance at Freq Delay Sum Output: %s\n', var(freq_var_temp(1:ns/2)));
+    fprintf('Variance at Bartlett Output: %s\n', var(bart_var_temp(1:ns/2)));
+end
 %% %%%%%                 HELPER FUNCTIONS                   %%%%%%%%%%%
 % function takes source locations, sampling Fs, source locations, and mic position
 % outputs resulting audio for that mic
