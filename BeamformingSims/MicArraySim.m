@@ -203,11 +203,8 @@ audiowrite('beamformed_signal.wav', y_beamformed, Fs);
 %same delay for same distance and desired endfire response
 phi = 90*pi/180;
 req_delay = (mic_pos * [cos(phi),sin(phi)]'/SOUND)'; %same as mic_rel_delay
-
-steering_matrix = exp(-1j * 2 * pi * f_resample' * req_delay);
-delaysum_steer_fft = mean(fft(beam_input) .* steering_matrix,2);
+delaysum_steer_fft = steering_delaysum(fft(beam_input), f_resample, req_delay);
 delaysum_steer_time = real(ifft(delaysum_steer_fft));
-
 
 if speak
     disp("Delay and Sum Beamforming");
