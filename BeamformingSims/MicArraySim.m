@@ -3,7 +3,7 @@ verbose = true;
 speak = true;
 graph = true;
 
-set(0, 'DefaultFigurePosition', [10, 10, 900, 600]); % Default size for all figures
+set(0, 'DefaultFigurePosition', [300, 300, 600, 300]); % Default size for all figures
 SOUND = 343; %meters/second
 
 %%  NUMBER AND COORDINATES OF MICROPHONES IN METERS  %
@@ -14,34 +14,27 @@ d = 0.01; % Spacing (1 cm), under nyquist for frequencies of interest
 mic_pos = (0:mic_n-1)' * [0,-d]; % Linear positions along y-axis 
 target_pos = [0, 2];
 
-%   POSITION OF AUDIO SOURCE    %
-[target_audio, Fs] = audioread('recorded_audio.wav');
-n = length(target_audio);
+%   POSITION OF AUDIO SOURCE   3 seconds of audio %
+Fs = 44100; %from testing with audiorecorder
+n = 3*Fs;
+f = linspace(0,Fs,n); % Frequency axis (Hz)
 t = (0:n-1)/Fs;
-f = (0:n-1)*(Fs/n); % Frequency axis (Hz)
 % pure tone overwrite for testing, middle C
 target_audio = 0.5*sin(t'*2*pi*262);
-
 
 
 %%%%%%%% Delay Between Mics %%%%%%
 phi = 90*pi/180;
 %same relative delay between them = distance between mics and speed constant
 req_delay = (mic_pos * [cos(phi),sin(phi)]'/SOUND)';
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
-%   Noise Source  %
+%   Noise Source  Uris Library%
 [noise_audio, Fs2] = audioread('AmbientNoise.wav');
 
 %resample if different
 [p,q] = rat(Fs/Fs2);
 noise_audio = resample(noise_audio, p, q);
 noise_audio = noise_audio(1:n)*2; %make a bit louder
-
-
-
 
 %% positions of noise source, roughly parabolic with noise 2 feet behind and
 % to sides 2x^2 - 2, mics at 0,0
@@ -146,8 +139,6 @@ end
 input_H = H.' .* mic_H;
 beam_input = fft(mic_data) .* repmat(input_H,1,mic_n);
 
-
-
 %%%%%%%%%%% FFT Graphs  %%%%%%%%%%%%%%%% Should Look V Similar
 audio_fft = abs(fft(target_audio)); % Compute the FFT
 
@@ -192,24 +183,24 @@ f_resample = linspace(0, fs_adc, ns);
 beam_input_fft = fft(beam_input);
 % time domaindelay and sum --> simplest, least computationally intensive
 % After computing mic_data and required delay:
-y_beamformed = delaysum(beam_input, req_delay, fs_adc);
+y_beamformed = time_delaysum(beam_input, req_delay, fs_adc);
 audiowrite('delaysum_signal.wav', y_beamformed, fs_adc);
 
 %% delay and sum in frequency domain
 %same delay for same distance and desired endfire response
-delaysum_freq_fft = bartlett(beam_input_fft, f_resample, req_delay);
+delaysum_freq_fft = freq_delaysum(beam_input_fft, f_resample, req_delay);
 delaysum_freq_time = real(ifft(delaysum_freq_fft));
 
 %% Bartlett Beamforming
 theta = (-90:90)*pi/180;
 power_output = zeros(length(theta),1);
 for i = 1:length(theta)
-    [power_output(i), ~] = bartlett2(beam_input, d, mic_n, theta(i));
+    [power_output(i), ~] = bartlett(beam_input, d, mic_n, theta(i));
 end
 power_output = 10*log10(abs(power_output));
 power_output = power_output - max(power_output);
 
-[~,y_bartlett2] = bartlett2(beam_input, d, mic_n, 0);
+[~,y_bartlett] = bartlett(beam_input, d, mic_n, 0);
 % :(
 if graph
     figure;
@@ -231,8 +222,8 @@ if speak
     pause(length(delaysum_freq_time)/fs_adc);
 
     disp("Bartlett Beamforming");
-    sound(y_bartlett2,fs_adc);
-    pause(length(y_bartlett2)/fs_adc);
+    sound(y_bartlett,fs_adc);
+    pause(length(y_bartlett)/fs_adc);
 end
 
 if verbose
@@ -245,14 +236,14 @@ end
 Y_original = fft(target_audio);
 Y_prebeamformed = fft(beam_input(:,1));
 Y_beamformed = fft(y_beamformed);
-Y_bartlett2 = fft(y_bartlett2);
+Y_bartlett = fft(y_bartlett);
 
 % Convert to magnitude (dB) for better comparison
 Y_original_mag_dB = 20*log10(abs(Y_original(1:n/2)));
 Y_beamformed_mag_dB = 20*log10(abs(Y_beamformed(1:ns/2)));
 Y_prebeamformed_mag_dB = 20*log10(abs(Y_prebeamformed(1:ns/2)));
 Y_delaysum_steer_mag_dB = 20*log10(abs(delaysum_freq_fft(1:ns/2)));
-Y_bartlett2_dB = 20*log10(abs(Y_bartlett2(1:ns/2)));
+Y_bartlett_dB = 20*log10(abs(Y_bartlett(1:ns/2)));
 
 % Plotting for Comparison 
 % Plot time-domain: Overlay beamformed signal with the original
@@ -264,7 +255,7 @@ if graph
     hold on;
     plot(ts, delaysum_freq_time, 'DisplayName', 'Freq Delay and Sum', 'LineWidth', 1.5);
     hold on;
-    plot(ts, y_bartlett2,'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
+    plot(ts, y_bartlett,'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
     hold on;
     plot(ts, beam_input(:,1), 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
     hold on;
@@ -284,7 +275,7 @@ if graph
     hold on;
     semilogx(f_resample(1:ns/2), Y_delaysum_steer_mag_dB , 'DisplayName', 'Freq Delay and Sum', 'LineWidth', 1.5);
     hold on;
-    semilogx(f_resample(1:ns/2), Y_bartlett2_dB , 'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
+    semilogx(f_resample(1:ns/2), Y_bartlett_dB , 'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
     hold on;
     semilogx(f_resample(1:ns/2), Y_prebeamformed_mag_dB, 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
     hold on;
@@ -315,7 +306,7 @@ target_audio = resample(target_audio, p, q);
 %% 
 fprintf('Variance at Time Delay Sum Output: %s\n', var(y_beamformed));
 fprintf('Variance at Freq Delay Sum Output: %s\n', var(delaysum_freq_time));
-fprintf('Variance at Bartlett Output: %s\n', var(y_bartlett2));
+fprintf('Variance at Bartlett Output: %s\n', var(y_bartlett));
 
 %% %%%%%                 HELPER FUNCTIONS                   %%%%%%%%%%%
 % function takes source locations, sampling Fs, source locations, and mic position

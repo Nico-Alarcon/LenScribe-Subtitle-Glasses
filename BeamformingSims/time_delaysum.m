@@ -1,4 +1,4 @@
-function y = delaysum(X, delays, fs)
+function y = time_delaysum(X, delays, fs)
 
     % Input validation
     [numSamples, numMics] = size(X);
