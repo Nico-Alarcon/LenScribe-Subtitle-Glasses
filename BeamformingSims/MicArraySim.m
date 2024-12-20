@@ -9,7 +9,7 @@ set(0, 'DefaultFigurePosition', [100, 100, 1200, 800]); % Default size for all f
 %Endfire Linear Microphone Array
 mic_n = 4; % Number of microphones
 d = 0.01; % Spacing (1 cm), under nyquist for frequencies of interest 
-mic_pos = horzcat(zeros(mic_n,1),(0:mic_n-1)' * d); % Linear positions along x-axis
+mic_pos = (0:mic_n-1)' * [0,d]; % Linear positions along y-axis 
 
 %   POSITION OF AUDIO SOURCE    %
 target_pos = [0, 2];
@@ -88,10 +88,10 @@ if speak
     pause(length(mic_data(:,1))/Fs + 1);
 end
 
-mic_rel_delay = abs(mic_delay - max(mic_delay))*1e6;
+mic_rel_delay = abs(mic_delay - max(mic_delay));
 if verbose
     for i = 1:length(mic_delay)
-        fprintf("Mic %d needs a delay of %sus\n",i, string(mic_rel_delay(i))); 
+        fprintf("Mic %d needs a delay of %sus\n",i, string(mic_rel_delay(i)*1e6)); 
     end
 end
 
@@ -117,12 +117,13 @@ fp = 2*pi*8000; %cutoff frequency
 [z, p, k] = besself(N,fp);
 [num, den] = zp2tf(z, p, k);
 [num_d, den_d] = impinvar(num, den, Fs); %convert to digital
+[H,f] = freqz(num_d,den_d, n, Fs);
 
 %% Plotting Group Delay and Magnitude Response of Filter
 figure;
-[h,f] = freqz(num_d,den_d, n, Fs);
+
 subplot(2,1,1);
-semilogx(f,20*log(abs(h)));
+semilogx(f,20*log(abs(H)));
 title("Magnitude Response of AntiAliasing Filter")
 xlabel("Frequency (Hz)")
 ylabel("Magnitude (dB)")
@@ -130,7 +131,7 @@ xline(fp)
 grid on
 
 subplot(2,1,2);
-grpdel = -diff(unwrap(angle(h)))./diff(2*pi*f);
+grpdel = -diff(unwrap(angle(H)))./diff(2*pi*f);
 semilogx(f(2:end),grpdel)
 title("Group Delay of AntiAliasing Filter")
 xlabel("Frequency (Hz)")
@@ -140,13 +141,13 @@ grid on
 
 
 %% %%%%%%%%% Apply Microphone and AAF tfs %%%%%%%%%%%%%%%%%%
-input_H = h .* mic_H;
+input_H = H .* mic_H;
 
 beam_input = zeros(length(target_audio),mic_n);
 for i = 1:mic_n
     beam_input(:,i) = fft(mic_data(:,i)) .* input_H;
 end
-%sound(real(ifft(mean(beam_input,2))), Fs);
+
 
 %%%%%%%%%%% FFT Graphs  %%%%%%%%%%%%%%%% Should Look V Similar
 audio_fft = abs(fft(target_audio)); % Compute the FFT
@@ -164,7 +165,7 @@ title('Magnitude Spectrum of Target Audio Signal');
 subplot(2,1,2);
 
 semilogx(f(1:n/2), 20*log10(beam_fft(1:n/2)), 'DisplayName','Beamforming Input'); hold on;
-semilogx(f(1:n/2), 20*log10(abs(h(1:n/2))), 'b', 'LineWidth', 2,'DisplayName', 'AAF Filter');
+semilogx(f(1:n/2), 20*log10(abs(H(1:n/2))), 'b', 'LineWidth', 2,'DisplayName', 'AAF Filter');
 semilogx(f(1:n/2), 20*log10(abs(mic_H(1:n/2))), 'r' , 'LineWidth', 2, 'DisplayName', 'Microphone H(s)');
 xlabel('Frequency (Hz)');
 ylabel('Magnitude (dB)');
@@ -190,24 +191,42 @@ f_resample = linspace(0, fs_adc, ns);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % BEAMFORMING OPERATIONS
 
-% delay and sum --> simplest, least computationally intensive
+%% delay and sum --> simplest, least computationally intensive
   % After computing mic_data and mic_delay:
 y_beamformed = delaysum(beam_input, mic_delay, Fs);
 %y_beamformed = y_beamformed / max(abs(y_beamformed));
 audiowrite('beamformed_signal.wav', y_beamformed, Fs);
 
+
+
+%% frequency domain delay/sum
+%same delay for same distance and desired endfire response
+phi = 90*pi/180;
+req_delay = (mic_pos * [cos(phi),sin(phi)]'/SOUND)'; %same as mic_rel_delay
+
+steering_matrix = exp(-1j * 2 * pi * f_resample' * req_delay);
+delaysum_steer_fft = mean(fft(beam_input) .* steering_matrix,2);
+delaysum_steer_time = real(ifft(delaysum_steer_fft));
+
+
 if speak
     disp("Delay and Sum Beamforming");
     sound(y_beamformed, fs_adc);
     pause(length(y_beamformed)/Fs +1);
+
+    disp("Frequency Domain Delay and Sum Beamforming");
+    sound(delaysum_steer_time, fs_adc);
+    pause(length(delaysum_steer_time)/fs_adc)
 end
 
+%% Plotting for Comparison 
 % Plot time-domain: Overlay beamformed signal with the original
 figure;
 subplot(2,1,1);
 
-
 plot(ts, y_beamformed, 'DisplayName', 'Beamformed', 'LineWidth', 1.5);
+hold on;
+plot(ts, delaysum_steer_time, 'DisplayName', 'Freq Domain Beamformed', 'LineWidth', 1.5);
 hold on;
 plot(ts, mean(beam_input,2), 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
 hold on;
@@ -230,6 +249,7 @@ Y_beamformed = fft(y_beamformed);
 Y_original_mag_dB = 20*log10(abs(Y_original(1:n/2)));
 Y_beamformed_mag_dB = 20*log10(abs(Y_beamformed(1:ns/2)));
 Y_prebeamformed_mag_dB = 20*log10(abs(Y_prebeamformed(1:ns/2)));
+Y_delaysum_steer_mag_dB = 20*log10(abs(delaysum_steer_fft(1:ns/2)));
 
 subplot(2,1,2);
 semilogx(f_resample(1:ns/2), Y_beamformed_mag_dB, 'DisplayName', 'Beamformed', 'LineWidth', 1.5);
@@ -237,8 +257,9 @@ hold on;
 semilogx(f_resample(1:ns/2), Y_prebeamformed_mag_dB, 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
 hold on;
 semilogx(f(1:n/2), Y_original_mag_dB, 'DisplayName', 'Original', 'LineWidth', 1.5);
+hold on;
+semilogx(f_resample(1:ns/2), Y_delaysum_steer_mag_dB , 'DisplayName', 'Freq Domain Beamforming', 'LineWidth', 1.5);
 hold off;
-
 
 title('Frequency-Domain: Original vs Beamformed');
 xlabel('Frequency (Hz)');
@@ -253,9 +274,8 @@ grid on;
 % Bartlett Beamforming --> delay/sum + uniform weighting per microphone
 
 
-% frequency domain delay/sum + deconvolution
 
-
+%plot(f_resample, delaysum_steer_fft, 'DisplayName', 'Freq Domain Beamforming', 'LineWidth', 1.5);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                         COMPARISONS AND ANALYSIS                     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
