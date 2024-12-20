@@ -14,7 +14,7 @@ function y = delaysum(X, delays, fs)
     for m = 1:numMics
         shift = sampleShifts(m);
         
-        if abs(shift) < 1e-12 % No major delay needed
+        if abs(shift) < 1e-12 %no delay needed
             y_delayed(:, m) = X(:, m);
         else
             t_shifted = t - shift; % Fractional delay via linear interpolation
