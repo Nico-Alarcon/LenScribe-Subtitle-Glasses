@@ -1,9 +1,9 @@
 clear;clf; close all;
-verbose = false;
-speak = false;
+verbose = true;
+speak = true;
 graph = true;
 
-set(0, 'DefaultFigurePosition', [100, 100, 1200, 800]); % Default size for all figures
+set(0, 'DefaultFigurePosition', [10, 10, 900, 600]); % Default size for all figures
 SOUND = 343; %meters/second
 
 %%  NUMBER AND COORDINATES OF MICROPHONES IN METERS  %
@@ -21,6 +21,8 @@ t = (0:n-1)/Fs;
 f = (0:n-1)*(Fs/n); % Frequency axis (Hz)
 % pure tone overwrite for testing, middle C
 target_audio = 0.5*sin(t'*2*pi*262);
+
+
 
 %%%%%%%% Delay Between Mics %%%%%%
 phi = 90*pi/180;
@@ -72,6 +74,7 @@ end
 %%delay of each and graph
 
 
+
 mic_data = zeros(n, mic_n);
 signal = zeros(n, mic_n);
 for i = 1:mic_n
@@ -101,8 +104,6 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                       SIGNAL REACHES MICROPHONES                     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 % MICROPHONE CONTINUOUS TIME |H(s)|  
 f_approx = [35, 100, 900, 1000, 1100, 8000, 15000]; %Hz
 magnitude_dB = [-1.0, -0.5, 0.0, 0.0, 0.0, 1.5, 4.5];
@@ -116,13 +117,13 @@ fp = 2*pi*8000; %cutoff frequency
 [z, p, k] = besself(N,fp);
 [num, den] = zp2tf(z, p, k);
 [num_d, den_d] = impinvar(num, den, Fs); %convert to digital
-[H,f] = freqz(num_d,den_d, n, Fs);
+H = freqz(num_d,den_d, f, Fs);
+
 
 %% Plotting Group Delay and Magnitude Response of Filter
 % Figure 2: Bessel AntiAliasing Filter, Cutoff at 8kHz
 if graph
     figure;
-    
     subplot(2,1,1);
     semilogx(f,20*log(abs(H)));
     title("Magnitude Response of AntiAliasing Filter")
@@ -142,8 +143,10 @@ if graph
 end
 
 %% %%%%%%%%% Apply Microphone and AAF tfs %%%%%%%%%%%%%%%%%%
-input_H = H .* mic_H;
+input_H = H.' .* mic_H;
 beam_input = fft(mic_data) .* repmat(input_H,1,mic_n);
+
+
 
 %%%%%%%%%%% FFT Graphs  %%%%%%%%%%%%%%%% Should Look V Similar
 audio_fft = abs(fft(target_audio)); % Compute the FFT
@@ -199,48 +202,6 @@ delaysum_freq_time = real(ifft(delaysum_freq_fft));
 
 %% Bartlett Beamforming
 theta = (-90:90)*pi/180;
-%{
-
-theta_sources = [-50,-25,0,25,50]*pi/180;
-source_power = [20,20,20,20,20];
-noise_power = 20-30;
-D = 5; %sources
-T = 1000; %samples
-M=10;
-C = eye(D) .* 10.^(source_power/20);
-F = C * (randn(D, T) + 1j * randn(D, T));
-N = 10.^(noise_power/20) .* (randn(M, T) + 1j * randn(M, T));
-
-
-sv = exp(-1j * 2 * pi * d * sin(theta_sources') .* (0:M-1)).';
-
-X = sv * F + N;
-subplot(2,1,1);
-plot((0:T-1), real(F));
-subplot(2,1,2);
-plot((0:T-1), real(X(:,:)));
-
-
-power_output = zeros(length(theta),1);
-for i = 1:length(theta)
-    Rxx = (X * X')/size(X,2);
-    steering_vector = exp(-1j * 2 * pi * d * (0:M-1) .* sin(theta(i)));
-    power_output(i) = steering_vector * Rxx * steering_vector';
-    %y = X * steering_vector'/size(X,1);
-end
-power_output = 10*log10(power_output);
-power_output = power_output - max(power_output);
-
-[~,y] = bartlett2(beam_input, d, mic_n, 90);
-
-%sound(y/max(y),fs_adc)
-figure;
-subplot(2,1,1);
-plot(ts, y/max(y));
-subplot(2,1,2);
-plot(theta*180/pi, real(power_output));
-%}
-
 power_output = zeros(length(theta),1);
 for i = 1:length(theta)
     [power_output(i), ~] = bartlett2(beam_input, d, mic_n, theta(i));
@@ -281,7 +242,7 @@ if verbose
 end
 
 % Frequency-domain comparison
-Y_original = fft(signal(:,1));
+Y_original = fft(target_audio);
 Y_prebeamformed = fft(beam_input(:,1));
 Y_beamformed = fft(y_beamformed);
 Y_bartlett2 = fft(y_bartlett2);
@@ -352,7 +313,7 @@ fprintf('Variance at Input: %s\n\n', var(noise_audio + target_audio));
 target_audio = resample(target_audio, p, q);
 
 %% 
-fprintf('Variance at Time Delay Sum Output: %s\n\n', var(y_beamformed));
+fprintf('Variance at Time Delay Sum Output: %s\n', var(y_beamformed));
 fprintf('Variance at Freq Delay Sum Output: %s\n', var(delaysum_freq_time));
 fprintf('Variance at Bartlett Output: %s\n', var(y_bartlett2));
 
