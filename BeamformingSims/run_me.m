@@ -267,7 +267,7 @@ if graph
     title('Time-Domain: Original vs Beamformed');
     xlabel('Time (s)');
     ylabel('Amplitude');
-    xlim([t(1),t(end)]);
+    xlim([t(end/2),t(end/2+1000)]);
     legend('Location', 'best');
     grid on;
     
