@@ -1,6 +1,6 @@
 clear;clf; close all;
 verbose = false;
-speak = true;
+speak = false;
 
 set(0, 'DefaultFigurePosition', [100, 100, 1200, 800]); % Default size for all figures
 
@@ -146,7 +146,7 @@ beam_input = zeros(length(target_audio),mic_n);
 for i = 1:mic_n
     beam_input(:,i) = fft(mic_data(:,i)) .* input_H;
 end
-sound(real(ifft(mean(beam_input,2))), Fs);
+%sound(real(ifft(mean(beam_input,2))), Fs);
 
 %%%%%%%%%%% FFT Graphs  %%%%%%%%%%%%%%%% Should Look V Similar
 audio_fft = abs(fft(target_audio)); % Compute the FFT
