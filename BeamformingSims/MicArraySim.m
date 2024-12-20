@@ -291,6 +291,39 @@ if graph
     xlim([f(1),min([f(ns/2),f_resample(ns/2)])]);
     ylim([-200, 100]);
     grid on;
+
+    [~,y_bartlett2] = bartlett(beam_input, d, mic_n, 90*pi/180, fs_adc);
+    y_bartlett2 = real(y_bartlett2);
+    figure;
+    subplot(2,1,1);
+    plot(ts, y_bartlett2,'DisplayName', 'Bartlett 90 degrees', 'LineWidth', 1.5);
+    hold on;
+    plot(ts, y_bartlett,'DisplayName', 'Bartlett 0 degrees', 'LineWidth', 1.5);
+    hold on;
+    title('Time-Domain: Bartlett 0 deg vs Bartlett 90 deg');
+    xlabel('Time (s)');
+    ylabel('Amplitude');
+    xlim([t(1),t(end)]);
+    legend('Location', 'best');
+    grid on;
+
+    subplot(2,1,2);
+    semilogx(f_resample(1:ns/2), Y_bartlett_dB , 'DisplayName', 'Bartlett 0 degrees', 'LineWidth', 1.5);
+    hold on;
+    Y_bartlett2 = fft(y_bartlett2);
+    Y_bartlett2_dB = 20*log10(abs(Y_bartlett2(1:ns/2)));
+    semilogx(f_resample(1:ns/2), Y_bartlett2_dB , 'DisplayName', 'Bartlett 90 degrees', 'LineWidth', 1.5);
+    hold on;
+
+    title('Frequency-Domain: Bartlett 0 deg vs Bartlett 90 deg');
+    xlabel('Frequency (Hz)');
+    ylabel('Magnitude (dB)');
+    legend('Location', 'best');
+    
+    xlim([f(1),min([f(ns/2),f_resample(ns/2)])]);
+    ylim([-200, 100]);
+    grid on;
+    
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
