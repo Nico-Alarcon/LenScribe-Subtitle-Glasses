@@ -11,7 +11,7 @@ SOUND = 343; %meters/second
 %Endfire Linear Microphone Array
 mic_n = 4; % Number of microphones
 d = 0.01; % Spacing (1 cm), under nyquist for frequencies of interest 
-mic_pos = (0:mic_n-1)' * [0,-d]; % Linear positions along y-axis 
+mic_pos = (0:mic_n-1)' * [0,d]; % Linear positions along y-axis 
 target_pos = [0, 2];
 
 %   POSITION OF AUDIO SOURCE   3 seconds of audio %
@@ -183,8 +183,8 @@ f_resample = linspace(0, fs_adc, ns);
 beam_input_fft = fft(beam_input);
 % time domaindelay and sum --> simplest, least computationally intensive
 % After computing mic_data and required delay:
-y_beamformed = time_delaysum(beam_input, req_delay, fs_adc);
-audiowrite('delaysum_signal.wav', y_beamformed, fs_adc);
+delaysum_time_time = time_delaysum(beam_input, req_delay, fs_adc);
+audiowrite('delaysum_signal.wav', delaysum_time_time, fs_adc);
 
 %% delay and sum in frequency domain
 %same delay for same distance and desired endfire response
@@ -214,8 +214,8 @@ end
 
 if speak
     disp("Delay and Sum Beamforming");
-    sound(y_beamformed, fs_adc);
-    pause(length(y_beamformed)/Fs +1);
+    sound(delaysum_time_time, fs_adc);
+    pause(length(delaysum_time_time)/Fs +1);
 
     disp("Frequency Domain Delay and Sum Beamforming");
     sound(delaysum_freq_time, fs_adc);
@@ -235,54 +235,132 @@ end
 % Frequency-domain comparison
 Y_original = fft(target_audio);
 Y_prebeamformed = fft(beam_input(:,1));
-Y_beamformed = fft(y_beamformed);
+Y_delaysum_time_fft = fft(delaysum_time_time);
 Y_bartlett = fft(y_bartlett);
 
 % Convert to magnitude (dB) for better comparison
 Y_original_mag_dB = 20*log10(abs(Y_original(1:n/2)));
-Y_beamformed_mag_dB = 20*log10(abs(Y_beamformed(1:ns/2)));
+Y_delaysum_time_mag_dB = 20*log10(abs(Y_delaysum_time_fft(1:ns/2)));
 Y_prebeamformed_mag_dB = 20*log10(abs(Y_prebeamformed(1:ns/2)));
-Y_delaysum_steer_mag_dB = 20*log10(abs(delaysum_freq_fft(1:ns/2)));
+Y_delaysum_freq_mag_dB = 20*log10(abs(delaysum_freq_fft(1:ns/2)));
 Y_bartlett_dB = 20*log10(abs(Y_bartlett(1:ns/2)));
 
 % Plotting for Comparison 
 % Plot time-domain: Overlay beamformed signal with the original
-if graph
-    figure;
+if graph    
+    %%
+    figure; 
     subplot(2,1,1);
     
-    plot(ts, y_beamformed, 'DisplayName', 'Time Delay and Sum', 'LineWidth', 1.5);
+    plot(ts, beam_input(:,1), 'DisplayName', 'Mic Input', 'LineWidth', 1.5);
     hold on;
-    plot(ts, delaysum_freq_time, 'DisplayName', 'Freq Delay and Sum', 'LineWidth', 1.5);
-    hold on;
-    plot(ts, y_bartlett,'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
-    hold on;
-    plot(ts, beam_input(:,1), 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
-    hold on;
-    plot(t, signal(:,1), 'DisplayName', 'Original', 'LineWidth', 1.5);
+    plot(t, target_audio, 'DisplayName', 'Original', 'LineWidth', 1.5);
     hold off;
     
-    title('Time-Domain: Original vs Beamformed');
+    title("Time-Domain: Original vs Mic Input");
     xlabel('Time (s)');
     ylabel('Amplitude');
     xlim([t(1),t(end)]);
     legend('Location', 'best');
     grid on;
     
-    
     subplot(2,1,2);
-    semilogx(f_resample(1:ns/2), Y_beamformed_mag_dB, 'DisplayName', 'Time Delay and Sum', 'LineWidth', 1.5);
-    hold on;
-    semilogx(f_resample(1:ns/2), Y_delaysum_steer_mag_dB , 'DisplayName', 'Freq Delay and Sum', 'LineWidth', 1.5);
-    hold on;
-    semilogx(f_resample(1:ns/2), Y_bartlett_dB , 'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
-    hold on;
-    semilogx(f_resample(1:ns/2), Y_prebeamformed_mag_dB, 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
+    semilogx(f_resample(1:ns/2), Y_prebeamformed_mag_dB, 'DisplayName', 'Mic Input', 'LineWidth', 1.5);
     hold on;
     semilogx(f(1:n/2), Y_original_mag_dB, 'DisplayName', 'Original', 'LineWidth', 1.5);
     hold off;
 
-    title('Frequency-Domain: Original vs Beamformed');
+    title("Frequency-Domain: Original vs Mic Input");
+    xlabel('Frequency (Hz)');
+    ylabel('Magnitude (dB)');
+    legend('Location', 'best');
+    
+    xlim([f(1),min([f(ns/2),f_resample(ns/2)])]);
+    ylim([-200, 100]);
+    grid on;
+    %%
+    figure; 
+    subplot(2,1,1);
+    
+    plot(ts,delaysum_time_time, 'DisplayName', 'Time Delay and Sum', 'LineWidth', 1.5);
+    hold on;
+    plot(t, target_audio, 'DisplayName', 'Original', 'LineWidth', 1.5);
+    hold off;
+    
+    title("Time-Domain: Original vs Time Delay and Sum");
+    xlabel('Time (s)');
+    ylabel('Amplitude');
+    xlim([t(1),t(end)]);
+    legend('Location', 'best');
+    grid on;
+    
+    subplot(2,1,2);
+    semilogx(f_resample(1:ns/2),Y_delaysum_time_mag_dB, 'DisplayName', 'Time Delay and Sum', 'LineWidth', 1.5);
+    hold on;
+    semilogx(f(1:n/2), Y_original_mag_dB, 'DisplayName', 'Original', 'LineWidth', 1.5);
+    hold off;
+
+    title("Frequency-Domain: Original vs Time Delay and Sum");
+    xlabel('Frequency (Hz)');
+    ylabel('Magnitude (dB)');
+    legend('Location', 'best');
+    
+    xlim([f(1),min([f(ns/2),f_resample(ns/2)])]);
+    ylim([-200, 100]);
+    grid on;
+    %%
+    figure; 
+    subplot(2,1,1);
+    
+    plot(ts,delaysum_freq_time, 'DisplayName', 'Freq Delay and Sum', 'LineWidth', 1.5);
+    hold on;
+    plot(t, target_audio, 'DisplayName', 'Original', 'LineWidth', 1.5);
+    hold off;
+    
+    title("Time-Domain: Original vs Freq Delay and Sum");
+    xlabel('Time (s)');
+    ylabel('Amplitude');
+    xlim([t(1),t(end)]);
+    legend('Location', 'best');
+    grid on;
+    
+    subplot(2,1,2);
+    semilogx(f_resample(1:ns/2),Y_delaysum_freq_mag_dB, 'DisplayName', 'Freq Delay and Sum', 'LineWidth', 1.5);
+    hold on;
+    semilogx(f(1:n/2), Y_original_mag_dB, 'DisplayName', 'Original', 'LineWidth', 1.5);
+    hold off;
+
+    title("Frequency-Domain: Original vs Freq Delay and Sum");
+    xlabel('Frequency (Hz)');
+    ylabel('Magnitude (dB)');
+    legend('Location', 'best');
+    
+    xlim([f(1),min([f(ns/2),f_resample(ns/2)])]);
+    ylim([-200, 100]);
+    grid on;
+    %%
+    figure; 
+    subplot(2,1,1);
+    
+    plot(ts,y_bartlett, 'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
+    hold on;
+    plot(t, target_audio, 'DisplayName', 'Original', 'LineWidth', 1.5);
+    hold off;
+    
+    title("Time-Domain: Original vs Bartlett Beamformed");
+    xlabel('Time (s)');
+    ylabel('Amplitude');
+    xlim([t(1),t(end)]);
+    legend('Location', 'best');
+    grid on;
+    
+    subplot(2,1,2);
+    semilogx(f_resample(1:ns/2),Y_bartlett_dB, 'DisplayName', 'Bartlett Beamformed', 'LineWidth', 1.5);
+    hold on;
+    semilogx(f(1:n/2), Y_original_mag_dB, 'DisplayName', 'Original', 'LineWidth', 1.5);
+    hold off;
+
+    title("Frequency-Domain: Original vs Bartlett Beamformed");
     xlabel('Frequency (Hz)');
     ylabel('Magnitude (dB)');
     legend('Location', 'best');
@@ -304,7 +382,7 @@ fprintf('Variance at Input: %s\n\n', var(noise_audio + target_audio));
 target_audio = resample(target_audio, p, q);
 
 %% 
-fprintf('Variance at Time Delay Sum Output: %s\n', var(y_beamformed));
+fprintf('Variance at Time Delay Sum Output: %s\n', var(delaysum_time_time));
 fprintf('Variance at Freq Delay Sum Output: %s\n', var(delaysum_freq_time));
 fprintf('Variance at Bartlett Output: %s\n', var(y_bartlett));
 
