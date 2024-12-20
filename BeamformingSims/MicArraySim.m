@@ -84,7 +84,7 @@ end
 
 % target audio + noise as it reaches microphones
 if speak 
-    sound(sum(mic_data,2)/mic_n,Fs);
+    sound(mean(mic_data,2),Fs);
     pause(length(mic_data(:,1))/Fs + 1);
 end
 
@@ -116,15 +116,13 @@ N=4;
 fp = 2*pi*8000; %cutoff frequency
 [z, p, k] = besself(N,fp);
 [num, den] = zp2tf(z, p, k);
-AAF = tf(num, den);
-[H, ~] = freqresp(AAF,2*pi*f);
-H = squeeze(H);
+[num_d, den_d] = impinvar(num, den, Fs);
 
-%%%% Plotting Group Delay and Magnitude Response of Filter
+%% Plotting Group Delay and Magnitude Response of Filter
 figure;
-[h,w] = freqs(num,den);
+[h,f] = freqz(num_d,den_d, n, Fs);
 subplot(2,1,1);
-semilogx(w(1:end)/(2*pi),20*log(abs(h)));
+semilogx(f,20*log(abs(h)));
 title("Magnitude Response of AntiAliasing Filter")
 xlabel("Frequency (Hz)")
 ylabel("Magnitude (dB)")
@@ -132,8 +130,8 @@ xline(fp)
 grid on
 
 subplot(2,1,2);
-grpdel = -diff(unwrap(angle(h)))./diff(w);
-semilogx(w(2:end)/(2*pi),grpdel)
+grpdel = -diff(unwrap(angle(h)))./diff(2*pi*f);
+semilogx(f(2:end),grpdel)
 title("Group Delay of AntiAliasing Filter")
 xlabel("Frequency (Hz)")
 ylabel("Group delay (s)")
@@ -142,31 +140,54 @@ grid on
 
 
 %% %%%%%%%%% Apply Microphone and AAF tfs %%%%%%%%%%%%%%%%%%
-input_H = H .* mic_H;
-beam_input = fft(mic_data) .* repmat(input_H, 1,mic_n);
+input_H = h .* mic_H;
+%beam_input = fft(target_audio) .* repmat(input_H, 1,mic_n);
+
+%beam_input = fft(target_audio) .* input_H;
+%sound(abs(ifft(beam_input(:,1))),Fs);
+%pause(length(target_audio)/Fs);
+
+%figure;
+%semilogx(f(1:n/2), 20*log10(beam_input(1:n/2,1))); % Plot only the positive frequencies
+%hold on;
+%xlabel('Frequency (Hz)');
+%ylabel('Magnitude (dB)');
+%xlim([f(1),f(n/2)]);
+%ylim([-200, 100]);
+%title('Magnitude Spectrum of Audio Signal');
+
+%TODO 
+beam_input = zeros(length(target_audio),mic_n);
+for i = 1:mic_n
+    beam_input(:,i) = fft(mic_data(:,i)) .* input_H;
+end
+sound(abs(ifft(mean(beam_input,2))), Fs);
 
 %%%%%%%%%%% FFT Graphs  %%%%%%%%%%%%%%%% Should Look V Similar
 audio_fft = abs(fft(target_audio)); % Compute the FFT
-beam_fft = abs(beam_input(:,1));
+beam_fft = abs(beam_input);
+
 
 figure;
 subplot(2,1,1);
 semilogx(f(1:n/2), 20*log10(audio_fft(1:n/2,1))); % Plot only the positive frequencies
 xlabel('Frequency (Hz)');
 ylabel('Magnitude (dB)');
+xlim([f(1),f(n/2)]);
 ylim([-200, 100]);
 title('Magnitude Spectrum of Audio Signal');
 subplot(2,1,2);
 
 semilogx(f(1:n/2), 20*log10(beam_fft(1:n/2)), 'DisplayName','Beamforming Input'); hold on;
-semilogx(f(1:n/2), 20*log10(abs(H(1:n/2))), 'b', 'LineWidth', 2,'DisplayName', 'AAF Filter');
+semilogx(f(1:n/2), 20*log10(abs(h(1:n/2))), 'b', 'LineWidth', 2,'DisplayName', 'AAF Filter');
 semilogx(f(1:n/2), 20*log10(abs(mic_H(1:n/2))), 'r' , 'LineWidth', 2, 'DisplayName', 'Microphone H(s)');
 xlabel('Frequency (Hz)');
 ylabel('Magnitude (dB)');
 legend('Location', 'best');
+xlim([f(1),f(n/2)]);
 ylim([-200, 100]);
 title('Magnitude Spectrum of Audio Signal After Mics and AAF');
-
+%%
 %%%%%%%%%%%%%%% FFT Check %%%%%%%%%%%%%
 
 % SAMPLING - uses its own AAF, but doesnt matter if fs > 16kHz
@@ -174,10 +195,11 @@ fs_adc = 20000;
 
 [p, q] = rat(fs_adc / Fs); % Calculate resampling factors
 
-beam_input = ifft(beam_input);
+beam_input = abs(ifft(beam_input));
 beam_input = resample(beam_input, p, q); % Resample signal
 ns = length(beam_input);
 ts = (0:ns-1)/fs_adc;
+f_resample = linspace(0, fs_adc, ns);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                         SIGNAL CONVERTED TO DIGITAL                  %%
@@ -197,20 +219,21 @@ subplot(2,1,1);
 
 plot(ts, y_beamformed, 'DisplayName', 'Beamformed', 'LineWidth', 1.5);
 hold on;
-plot(t, sum(signal,2)/mic_n, 'DisplayName', 'Target Audio', 'LineWidth', 1.5);
+plot(t, sum(signal,2)/mic_n, 'DisplayName', 'Original', 'LineWidth', 1.5);
 hold on;
-plot(ts, sum(beam_input,2)/mic_n, 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
+plot(ts, mean(beam_input,2), 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
 hold off;
 
 title('Time-Domain: Original vs Beamformed');
 xlabel('Time (s)');
 ylabel('Amplitude');
+xlim([t(1),t(end)]);
 legend('Location', 'best');
 grid on;
 
 % Frequency-domain comparison
-Y_original = fft(sum(signal,2)/mic_n);
-Y_prebeamformed = fft(sum(beam_input,2)/mic_n);
+Y_original = fft(mean(signal,2));
+Y_prebeamformed = fft(mean(beam_input,2));
 Y_beamformed = fft(y_beamformed);
 
 % Convert to magnitude (dB) for better comparison
@@ -220,9 +243,9 @@ Y_prebeamformed_mag_dB = 20*log10(abs(Y_prebeamformed(1:ns/2)));
 
 subplot(2,1,2);
 
-semilogx(f(1:ns/2), Y_beamformed_mag_dB, 'DisplayName', 'Beamformed', 'LineWidth', 1.5);
+semilogx(f_resample(1:ns/2), Y_beamformed_mag_dB, 'DisplayName', 'Beamformed', 'LineWidth', 1.5);
 hold on;
-semilogx(f(1:ns/2), Y_prebeamformed_mag_dB, 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
+semilogx(f_resample(1:ns/2), Y_prebeamformed_mag_dB, 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
 hold on;
 semilogx(f(1:n/2), Y_original_mag_dB, 'DisplayName', 'Original', 'LineWidth', 1.5);
 hold off;
@@ -230,8 +253,10 @@ title('Frequency-Domain: Original vs Beamformed');
 xlabel('Frequency (Hz)');
 ylabel('Magnitude (dB)');
 legend('Location', 'best');
-grid on;
+
+xlim([f(1),min([f(ns/2),f_resample(ns/2)])]);
 ylim([-200, 100]);
+grid on;
 
 
 % Bartlett Beamforming --> delay/sum + uniform weighting per microphone
