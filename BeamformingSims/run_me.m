@@ -1,6 +1,6 @@
 clear;clf; close all;
 verbose = true;
-speak = true;
+speak = false;
 graph = true;
 
 set(0, 'DefaultFigurePosition', [300, 300, 600, 300]); % Default size for all figures
@@ -12,7 +12,7 @@ SOUND = 343; %meters/second
 mic_n = 4; % Number of microphones
 d = 0.01; % Spacing (1 cm), under nyquist for frequencies of interest 
 mic_pos = (0:mic_n-1)' * [0,d]; % Linear positions along y-axis 
-target_pos = [0, 2];
+target_pos = [0, 1];
 
 %   POSITION OF AUDIO SOURCE   3 seconds of audio %
 Fs = 44100; %from testing with audiorecorder
@@ -42,10 +42,32 @@ noise_audio = noise_audio(1:n)*2; %make a bit louder
 noise_x = 2; % length is noise_x*2 + 1
 noise_pos = horzcat((-noise_x:noise_x)',((-noise_x:noise_x)'.^2).*2 -2);
 
+if graph
+    figure;
+    subplot(1,2,1);
+    %mic positions
+    plot(mic_pos(:,1)*10^3, mic_pos(:,2)*10^3, 'o', 'MarkerSize', 8, 'MarkerFaceColor', 'b');
+    xlim([-60,60]);
+    ylim([-60,60]);
+    title('Microphone Array Position in mm');
+    subplot(1,2,2);
+    plot(mic_pos(:,1)*10^3, mic_pos(:,2)*10^3, 'o', 'MarkerSize', 8, 'MarkerFaceColor', 'b');
+    hold on;
+    %target audio
+    plot(target_pos(:,1)*10^3, target_pos(:,2)*10^3, 'o', 'MarkerSize', 8, 'MarkerFaceColor', 'r');
+    hold on;
+    %noise audio
+    plot(noise_pos(:,1)*10^3, noise_pos(:,2)*10^3, 'o', 'MarkerSize', 8, 'MarkerFaceColor', 'g');
+    % Labels and formatting
+    title('Target and Noise Coordinates in mm');
+    grid on;
+    axis equal; % Ensures equal scaling of x and y axes
+end
+
 if speak
     disp("Target Audio");
     sound(target_audio, Fs);
-    pause(length(target_audio)/Fs +1); %stop for another second
+    pause(length(signal(:,1))/Fs +1); %stop for another second
 end
 
 %% Step 2: Delay and attenuation due to distance from audio source
@@ -141,7 +163,7 @@ input_H = H.' .* mic_H;
 beam_input = fft(mic_data) .* repmat(input_H,1,mic_n);
 
 %%%%%%%%%%% FFT Graphs  %%%%%%%%%%%%%%%% Should Look V Similar
-audio_fft = abs(fft(target_audio)); % Compute the FFT
+audio_fft = abs(fft(signal(:,1))); % Compute the FFT
 
 %Figure 3: Target Audio Signal FFT and Target + Noise
 if graph
@@ -193,7 +215,7 @@ delaysum_freq_fft = freq_delaysum(beam_input_fft, f_resample, req_delay);
 delaysum_freq_time = real(ifft(delaysum_freq_fft));
 
 %% Bartlett Beamforming
-theta = (-90:90)*pi/180;
+theta = (-180:180)*pi/180;
 power_output = zeros(length(theta),1);
 for i = 1:length(theta)
     [power_output(i), ~] = bartlett(beam_input, d, mic_n, theta(i), fs_adc);
@@ -206,11 +228,8 @@ y_bartlett = real(y_bartlett);
 % :(
 if graph
     figure;
-    plot(theta*180/pi, real(power_output));
+    polarplot(theta, real(power_output));
     title('Phase vs. Bartlett Array Response');
-    xlabel('Phase (degrees)');
-    ylabel('Normalized Power Output (dB)');
-    xlim([-90,90]);
     grid on;
 end
 
@@ -235,7 +254,7 @@ if verbose
 end
 
 % Frequency-domain comparison
-Y_original = fft(target_audio);
+Y_original = fft(signal(:,1));
 Y_prebeamformed = fft(beam_input(:,1));
 Y_delaysum_time_fft = fft(delaysum_time_time);
 Y_bartlett = fft(y_bartlett);
@@ -261,7 +280,7 @@ if graph
     hold on;
     plot(ts, beam_input(:,1), 'DisplayName', 'Pre-Beamformed', 'LineWidth', 1.5);
     hold on;
-    plot(t, target_audio, 'DisplayName', 'Original', 'LineWidth', 1.5);
+    plot(t, signal(:,1), 'DisplayName', 'Original', 'LineWidth', 1.5);
     hold off;
     
     title('Time-Domain: Original vs Beamformed');
