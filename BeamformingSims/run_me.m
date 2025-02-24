@@ -11,7 +11,7 @@ SOUND = 343; %meters/second
 %Endfire Linear Microphone Array
 mic_n = 10; % Number of microphones
 d = 0.01; % Spacing (1 cm), under nyquist for frequencies of interest 
-mic_pos = (0:mic_n-1)' * [d,0]; % Linear positions along y-axis 
+mic_pos = (0:mic_n-1)' * [0,d]; % Linear positions along y-axis 
 
 theta = pi/2;
 target_pos = [cos(theta), sin(theta)];
