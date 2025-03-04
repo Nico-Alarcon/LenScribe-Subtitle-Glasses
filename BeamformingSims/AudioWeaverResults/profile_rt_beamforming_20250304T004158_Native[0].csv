@@ -1,0 +1,54 @@
+	,Native [0]	
+Target Name:	,Native	
+AWECore Version:	,8.D.10.0	
+Processor Type:	,Native	
+CPU Clock Speed:	,2.592000e+00 GHz	
+Profiling Clock Speed:	,10 MHz	
+Sample Rate:	,48000 Hz	
+Fundamental Block Size:	,16 	
+Profiling Date and Time:	,04-Mar-2025 00:41:51	
+Designer Version:	,8.D.2.7 Standard	
+
+Total ticks per block process available (calculated):	,3456000.0	
+Total ticks per block process available (measured):	,3359315.0	
+Average ticks per block:	,31051.3  (0.90 %)	
+Instantaneous ticks per block:	,26697.6  (0.77 %)	
+Peak ticks per block:	,295747.2  (8.56 %)	
+	,	
+Fast Heap:	,5709	
+Fast Heap B:	,3852	
+Slow Heap:	,181	
+Total Memory:	,9742	
+	,	
+Shared Heap:	,29	
+
+
+Module Name,Full Name,Hierarchy Level,Class Name,Percent,MHz,Total Ticks,Clk Divider,InstanceID,Alloc Priority,Fast Heap,Fast Heap B,Slow Heap,Shared Heap,Overflow Count,Input Block Size,Input Num Channels,Input Complex,Output Block Size,Output Num Channels,Output Complex
+Top_0,Top_0,0,Layout,0.89848,23.2885,31051,1A,0,0,5709,3852,181,29,0,64,4,0,64,1,0
+SYS_toFloat,SYS_toFloat,0,TypeConversion,0.046348,1.2013,1602,1A,0,0,13,0,0,0,,64,4,0,64,4,0
+WOLAAnalysis1,WOLAAnalysis1,0,WOLAAnalysis,0.68435,17.7382,23651,1A,0,0,,,,,,64,4,0,65,4,1
+windowAlias,WOLAAnalysis1.windowAlias,1,WindowAlias,0.34749,9.0069,12009,1A,0,0,789,3078,0,0,,64,4,0,128,4,0
+fft,WOLAAnalysis1.fft,1,Fft,0.32323,8.3782,11171,1A,0,0,13,0,0,0,,128,4,0,65,4,1
+wp,WOLAAnalysis1.wp,1,SetWireProperties,0.013623,0.3531,471,1A,0,0,11,0,0,0,,65,4,1,65,4,1
+BF1,BF1,0,SbBeamformerV3,0.038291,0.9925,1323,1A,0,0,539,0,0,0,,65,4,1,65,1,1
+WOLASynthesis2,WOLASynthesis2,0,WOLASynthesis,0.14329,3.7141,4952,1A,0,0,,,,,,65,1,1,64,1,0
+wp,WOLASynthesis2.wp,1,SetWireProperties,0.0074414,0.1929,257,1A,0,0,11,0,0,0,,65,1,1,65,1,1
+ifft,WOLASynthesis2.ifft,1,Ifft,0.091406,2.3693,3159,1A,0,0,13,0,0,0,,65,1,1,128,1,0
+overlap,WOLASynthesis2.overlap,1,RepWinOverlap,0.044443,1.152,1536,1A,0,0,788,773,0,0,,128,1,0,64,1,0
+SYS_toFract,SYS_toFract,0,TypeConversion,0.014648,0.3797,506,1A,0,0,13,0,0,0,,64,1,0,64,1,0
+
+
+Wires:
+Index,Type,# Channels,Block Size,isComplex,Clk Divider,InstanceID,Fast Heap,Fast Heap B,Slow Heap,Shared Heap
+1,Input,4,64,0,1A,0,522,0,15,0
+2,Output,1,64,0,1A,0,138,0,15,0
+3,Scratch,4,64,0,1A,0,261,0,15,0
+4,Scratch,4,128,0,1A,0,517,0,15,0
+5,Scratch,4,65,1,1A,0,525,0,15,0
+6,Scratch,1,129,1,1A,0,263,0,15,0
+7,Scratch,4,65,1,1A,0,525,0,15,0
+8,Scratch,1,65,1,1A,0,135,0,15,0
+9,Scratch,1,65,1,1A,0,135,0,15,0
+10,Scratch,1,128,0,1A,0,133,0,15,0
+11,Scratch,1,128,1,1A,0,261,0,15,0
+12,Scratch,1,64,0,1A,0,69,0,15,0
